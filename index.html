@@ -6,7 +6,7 @@
 <meta name="description" content="A fan-made Keeper of the Lost Cities personality quiz that matches you with a character and likely abilities.">
 <meta name="theme-color" content="#10293d">
 <title>Lost Cities Matchmaker</title>
-<link rel="stylesheet" href="styles.css?v=20260402-1">
+<link rel="stylesheet" href="styles.css?v=20260419-2">
 </head>
 <body>
 <div class="page-shell">
@@ -47,8 +47,8 @@
                 </article>
                 <article class="feature-tile">
                     <span class="feature-kicker">Ability Readout</span>
-                    <h2>Magic or Talentless</h2>
-                    <p>The result includes likely abilities, plus a grounded Talentless path if that fits better.</p>
+                    <h2>22 talents plus Talentless</h2>
+                    <p>The quiz can now land on classic, rare, banned, and historically unusual abilities, plus a grounded Talentless path.</p>
                 </article>
                 <article class="feature-tile">
                     <span class="feature-kicker">Built To Share</span>
@@ -60,24 +60,24 @@
 
         <section class="overview-strip">
             <article class="stat-card">
-                <div class="stat-number">10</div>
+                <div class="stat-number">3</div>
                 <div class="stat-copy">
-                    <h2>Personality questions</h2>
-                    <p>Short enough to finish quickly, detailed enough to split results apart.</p>
+                    <h2>Quiz types</h2>
+                    <p>Pick Quick, Normal, or Advanced depending on how deep you want the read to go.</p>
                 </div>
             </article>
             <article class="stat-card">
-                <div class="stat-number">10</div>
+                <div class="stat-number">23</div>
                 <div class="stat-copy">
                     <h2>Possible ability outcomes</h2>
-                    <p>From Telepath and Technopath to Talentless, depending on how you answer.</p>
+                    <p>All 22 requested abilities are now in the pool, with Talentless still available as a fallback result.</p>
                 </div>
             </article>
             <article class="stat-card">
-                <div class="stat-number">1</div>
+                <div class="stat-number">7-30</div>
                 <div class="stat-copy">
-                    <h2>Copy-ready result</h2>
-                    <p>The site generates a summary you can paste into social posts, wiki pages, or bios.</p>
+                    <h2>Questions per run</h2>
+                    <p>The fast version stays light, the standard version stays balanced, and the advanced version goes deep.</p>
                 </div>
             </article>
         </section>
@@ -95,7 +95,7 @@
             <div class="section-heading">
                 <p class="eyebrow">Ability Pool</p>
                 <h2>What the quiz can assign</h2>
-                <p>Your result can land on one strong ability, a two-ability blend, or Talentless.</p>
+                <p>Your result can land on one strong ability, a two-ability blend, or Talentless, across a much larger pool of elvin talents.</p>
             </div>
             <div class="preview-grid" id="abilityPreviewGrid"></div>
         </section>
@@ -104,7 +104,7 @@
             <div class="section-heading">
                 <p class="eyebrow">Main Event</p>
                 <h2>Take the quiz</h2>
-                <p>Answer honestly. The result screen compares your strongest character pulls and ability pulls.</p>
+                <p>Choose a quick, normal, or advanced version, then answer honestly. The result screen compares your strongest character pulls and ability pulls.</p>
             </div>
 
             <div class="quiz-shell panel">
@@ -127,17 +127,39 @@
                         <h3>Hosting note</h3>
                         <p>Because this is a static site, you can upload it without any server code. That makes it easy to link from wiki pages.</p>
                     </article>
+                    <article class="sidebar-card">
+                        <h3 id="sidebarModeHeading">Normal quiz</h3>
+                        <p id="sidebarModeText">14 questions with the standard result read and full baseline scoring.</p>
+                    </article>
                 </aside>
 
                 <div class="quiz-main">
                     <section class="state-panel" id="introPanel">
                         <p class="eyebrow">Before You Start</p>
-                        <h3>Pick the answers that actually sound like you.</h3>
+                        <h3>Choose how deep you want the read to be.</h3>
                         <p>
                             The best results come from instinct instead of trying to chase a specific character.
-                            When you finish, you will get a character match, ability result, top traits, and a text block you can share.
+                            Quick is shorter and dynamic, Normal is the standard full version, and Advanced stretches to 30 questions with a deeper breakdown at the end.
                         </p>
-                        <button class="button-primary" id="startQuizButton" type="button">Start quiz</button>
+                        <div class="mode-grid" id="modeGrid">
+                            <button class="mode-card" data-mode="quick" type="button">
+                                <span class="mode-kicker">Mode 1</span>
+                                <strong>Quick Quiz</strong>
+                                <span>7 dynamic questions for a fast read.</span>
+                            </button>
+                            <button class="mode-card selected" data-mode="normal" type="button">
+                                <span class="mode-kicker">Mode 2</span>
+                                <strong>Normal Quiz</strong>
+                                <span>14 questions with the full standard result.</span>
+                            </button>
+                            <button class="mode-card" data-mode="advanced" type="button">
+                                <span class="mode-kicker">Mode 3</span>
+                                <strong>Advanced Quiz</strong>
+                                <span>30 questions with a deeper, more detailed read.</span>
+                            </button>
+                        </div>
+                        <p class="mode-note muted" id="modeNote">Normal quiz is selected. It uses the full standard question set.</p>
+                        <button class="button-primary" id="startQuizButton" type="button">Start normal quiz</button>
                     </section>
 
                     <section class="state-panel" id="questionPanel" hidden>
@@ -146,10 +168,14 @@
                                 <div class="progress-line">
                                     <div class="progress-fill" id="progressFill"></div>
                                 </div>
-                                <div class="progress-copy" id="progressText">Question 1 of 10</div>
+                                <div class="progress-copy" id="progressText">Question 1 of 14</div>
                             </div>
-                            <div class="answer-hint" id="selectionHint">Choose one answer to continue.</div>
+                            <div class="question-side">
+                                <div class="mode-pill" id="activeModePill">Normal Quiz</div>
+                                <button class="button-secondary mode-switch-button" id="changeModeButton" type="button">Change quiz type</button>
+                            </div>
                         </div>
+                        <div class="answer-hint" id="selectionHint">Choose one answer to continue.</div>
 
                         <h3 class="question-text" id="questionText"></h3>
                         <div class="option-grid" id="optionGrid"></div>
@@ -163,11 +189,12 @@
                     <section class="state-panel" id="resultPanel" hidden>
                         <div class="result-head">
                             <div>
-                                <p class="eyebrow">Your Result</p>
+                                <p class="eyebrow" id="resultModeLabel">Normal Quiz Result</p>
                                 <h3 id="resultHeading">You match...</h3>
                             </div>
                             <div class="result-actions">
                                 <button class="button-secondary" id="copyResultButton" type="button">Copy result text</button>
+                                <button class="button-secondary" id="changeQuizTypeResultButton" type="button">Choose quiz type</button>
                                 <button class="button-primary" id="restartButton" type="button">Retake quiz</button>
                             </div>
                         </div>
@@ -189,6 +216,25 @@
                                 <div class="subsection">
                                     <h5>Core traits</h5>
                                     <ul class="tag-list result-tags" id="traitList"></ul>
+                                </div>
+
+                                <div class="subsection result-analysis">
+                                    <h5 id="analysisHeading">Standard read</h5>
+                                    <p id="analysisIntro"></p>
+                                    <div class="detail-grid">
+                                        <article class="detail-card">
+                                            <p class="detail-label" id="detailOneLabel">Decision Style</p>
+                                            <p id="detailOneText"></p>
+                                        </article>
+                                        <article class="detail-card">
+                                            <p class="detail-label" id="detailTwoLabel">Team Role</p>
+                                            <p id="detailTwoText"></p>
+                                        </article>
+                                        <article class="detail-card">
+                                            <p class="detail-label" id="detailThreeLabel">Nuance</p>
+                                            <p id="detailThreeText"></p>
+                                        </article>
+                                    </div>
                                 </div>
 
                                 <div class="share-box">
@@ -245,6 +291,6 @@
     </footer>
 </div>
 
-<script src="app.js?v=20260402-1"></script>
+<script src="app.js?v=20260419-2"></script>
 </body>
 </html>
