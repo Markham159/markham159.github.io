@@ -1650,6 +1650,8 @@ const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 
 const state = {
     modeKey: "normal",
+    questionPool: [],
+    targetQuestionCount: 14,
     activeQuestions: [],
     currentQuestion: 0,
     answers: [],
@@ -1698,25 +1700,34 @@ function shuffleArray(items) {
     return copy;
 }
 
-function buildQuickQuiz() {
-    const selectedQuestions = quickQuestionGroups.map((group) => {
-        const choiceIndex = group[Math.floor(Math.random() * group.length)];
-        return normalQuizData[choiceIndex];
-    });
-
-    return shuffleArray(selectedQuestions);
-}
-
-function getQuestionsForMode(modeKey) {
-    if (modeKey === "quick") {
-        return buildQuickQuiz();
-    }
-
+function getModeQuestionPool(modeKey) {
     if (modeKey === "advanced") {
         return normalQuizData.concat(advancedOnlyQuizData);
     }
 
     return normalQuizData.slice();
+}
+
+function getQuestionCountForMode(modeKey) {
+    if (modeKey === "quick") {
+        return 7;
+    }
+
+    if (modeKey === "advanced") {
+        return 30;
+    }
+
+    return 14;
+}
+
+function getStartingQuestion(modeKey, questionPool) {
+    if (modeKey === "quick") {
+        const starterGroup = quickQuestionGroups[0];
+        const starterIndex = starterGroup[Math.floor(Math.random() * starterGroup.length)];
+        return normalQuizData[starterIndex];
+    }
+
+    return questionPool[0];
 }
 
 function getActiveMode() {
@@ -1748,7 +1759,239 @@ function updateModeUI() {
 }
 
 function getCurrentQuestionCount() {
-    return state.activeQuestions.length;
+    return state.targetQuestionCount;
+}
+
+function removeFuturePath() {
+    state.activeQuestions = state.activeQuestions.slice(0, state.currentQuestion + 1);
+    state.answers = state.answers.slice(0, state.currentQuestion + 1);
+}
+
+function getTopKey(map, fallbackKey) {
+    const entries = sortedEntries(map || {});
+    return entries[0] ? entries[0][0] : fallbackKey;
+}
+
+function getSupportKey(map, primaryKey, fallbackKey) {
+    const entries = sortedEntries(map || {});
+    const supportEntry = entries.find(([key]) => key !== primaryKey);
+    return supportEntry ? supportEntry[0] : fallbackKey;
+}
+
+function buildFocusedEffects(characterKey, abilityKey, traitKey, weights) {
+    return {
+        characters: { [characterKey]: weights.character },
+        abilities: { [abilityKey]: weights.ability },
+        traits: { [traitKey]: weights.trait }
+    };
+}
+
+const answerBranchQuestions = [
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you find a locked door with voices behind it. What do you try first?`,
+        options: [
+            ["Pick the quietest way in", "Getting inside without starting a scene matters most."],
+            ["Listen until the pattern makes sense", "I want to know what I am walking into."],
+            ["Knock and force the moment", "Sometimes direct pressure gets answers fastest."],
+            ["Find another route", "The obvious door is not always the smartest entrance."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", a friend admits they kept a secret from you. What matters most now?`,
+        options: [
+            ["Why they hid it", "The reason changes how I understand the choice."],
+            ["Whether anyone got hurt", "Impact matters more than excuses."],
+            ["What we do next", "I would rather fix the problem than stay stuck in the reveal."],
+            ["Whether I can still trust them", "The relationship has to be honest after this."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you are handed a strange gadget that might be dangerous. What is your move?`,
+        options: [
+            ["Test it carefully", "Useful things still need limits."],
+            ["Take it apart mentally", "I want to understand the system before touching anything."],
+            ["Use it if time is running out", "Risk changes when people need help immediately."],
+            ["Give it to the best builder", "The right person should handle the weird tech."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", someone challenges you in front of everyone. How do you answer?`,
+        options: [
+            ["Stay calm and precise", "I do not need to get loud to win the moment."],
+            ["Turn the attention back on them", "If they started this, they can handle being questioned."],
+            ["Make a joke with teeth", "Humor can expose more than anger does."],
+            ["Say exactly what I mean", "I would rather be clear than comfortable."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", the team has to choose between speed and caution. What do you push for?`,
+        options: [
+            ["Move now", "Waiting can become its own danger."],
+            ["Plan the first three steps", "Fast is better when it has structure."],
+            ["Send one scout first", "Information can save everyone time."],
+            ["Protect the weakest person first", "No plan works if someone gets left behind."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you notice someone being excluded. What do you do?`,
+        options: [
+            ["Bring them in directly", "I do not like watching someone get pushed aside."],
+            ["Check on them privately", "Some people need help without a spotlight."],
+            ["Challenge the group", "If the room is being unfair, the room should hear it."],
+            ["Find them a useful role", "Belonging feels easier when someone has a real purpose."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", a clue points to two possible suspects. What decides it for you?`,
+        options: [
+            ["Who had the motive", "Feelings and pressure usually leave a trail."],
+            ["Who had the opportunity", "The cleanest answer starts with what was possible."],
+            ["Who is acting too normal", "Over-control can be its own clue."],
+            ["Who benefits if everyone guesses wrong", "I look for the person using the confusion."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you get separated from the group. What helps you most?`,
+        options: [
+            ["A clear head", "Panic wastes the first good chance."],
+            ["A fast exit", "I want movement before the trap tightens."],
+            ["A signal to the others", "I am stronger when the team can reconnect."],
+            ["A hidden place to watch", "Seeing the situation first changes everything."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", someone offers you a shortcut with a catch. What do you ask?`,
+        options: [
+            ["Who pays for it?", "Every shortcut costs someone something."],
+            ["What are they hiding?", "The catch is usually smaller than the real secret."],
+            ["Will it actually work?", "I care less about drama than reliability."],
+            ["Can we make a better option?", "I would rather improve the plan than accept a bad deal."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", your ability misfires in public. What is your instinct?`,
+        options: [
+            ["Contain the damage", "First priority is making sure no one gets hurt."],
+            ["Act like I meant to do it", "Confidence buys time."],
+            ["Figure out what triggered it", "A mistake is still information."],
+            ["Get away from the crowd", "Less attention makes it easier to recover."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", the group needs a distraction. What kind would you create?`,
+        options: [
+            ["Something loud", "If everyone looks at me, everyone else can move."],
+            ["Something confusing", "The best distraction makes people question what they saw."],
+            ["Something useful", "I want the distraction to solve part of the problem too."],
+            ["Something subtle", "The best move is the one nobody notices until later."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you are asked to lead people who doubt you. What wins them over?`,
+        options: [
+            ["A smart plan", "Competence speaks louder than demanding respect."],
+            ["A brave first move", "People follow when someone proves they will step up."],
+            ["Protecting them anyway", "Trust grows when people see you care."],
+            ["Letting results speak", "I do not need applause before doing the job."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", you discover a rule that feels wrong. What do you do with it?`,
+        options: [
+            ["Question it openly", "Bad rules survive when nobody challenges them."],
+            ["Look for the history behind it", "I want to know why it exists before breaking it."],
+            ["Work around it quietly", "Sometimes the cleanest rebellion is practical."],
+            ["Protect whoever the rule hurts", "People matter more than tradition."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", an enemy gives you one true answer. What do you ask about?`,
+        options: [
+            ["Their weakness", "One useful crack can change the whole fight."],
+            ["Who they are protecting", "Loyalty reveals more than threats."],
+            ["What happens next", "I want the future problem before it arrives."],
+            ["What they lied about before", "The old lie might unlock everything."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", your friends want the safe answer but you see another path. What do you do?`,
+        options: [
+            ["Argue for the risky path", "If it is right, I need to make the case."],
+            ["Modify the safe plan", "There may be a stronger middle option."],
+            ["Go alone if needed", "I do not love it, but I might still do it."],
+            ["Let them vote", "The team has to carry the choice together."]
+        ]
+    },
+    {
+        question: (context) => `Because you answered "${context.answerTitle}", someone asks what you are really afraid of. What answer feels closest?`,
+        options: [
+            ["Failing someone who trusted me", "Letting people down would stay with me."],
+            ["Missing the obvious clue", "I hate realizing the answer was there all along."],
+            ["Freezing when action matters", "I want to be someone who moves when it counts."],
+            ["Losing control of myself", "My steadiness matters more than people know."]
+        ]
+    }
+];
+
+function getAnswerBranchIndex(previousQuestion, selectedOption) {
+    const branchKey = `${previousQuestion.question}|${selectedOption.title}`;
+    let hash = 0;
+
+    for (let index = 0; index < branchKey.length; index += 1) {
+        hash = (hash * 31 + branchKey.charCodeAt(index)) % answerBranchQuestions.length;
+    }
+
+    return hash;
+}
+
+function buildAdaptiveFollowUpQuestion(previousQuestion, selectedOption) {
+    const primaryCharacterKey = getTopKey(selectedOption.effects.characters, "sophie");
+    const primaryAbilityKey = getTopKey(selectedOption.effects.abilities, "telepath");
+    const primaryTraitKey = getTopKey(selectedOption.effects.traits, "heart");
+    const supportCharacterKey = getSupportKey(selectedOption.effects.characters, primaryCharacterKey, primaryCharacterKey);
+    const supportAbilityKey = getSupportKey(selectedOption.effects.abilities, primaryAbilityKey, primaryAbilityKey);
+    const supportTraitKey = getSupportKey(selectedOption.effects.traits, primaryTraitKey, primaryTraitKey);
+    const primaryCharacter = characterInfo[primaryCharacterKey];
+    const supportCharacter = characterInfo[supportCharacterKey];
+    const primaryAbility = abilityInfo[primaryAbilityKey];
+    const supportAbility = abilityInfo[supportAbilityKey];
+    const scenario = answerBranchQuestions[getAnswerBranchIndex(previousQuestion, selectedOption)];
+    const context = {
+        answerTitle: selectedOption.title,
+        previousQuestion: previousQuestion.question,
+        character: primaryCharacter,
+        ability: primaryAbility,
+        supportCharacter,
+        supportAbility
+    };
+    const optionBlueprints = scenario.options;
+
+    return {
+        question: scenario.question(context),
+        options: optionBlueprints.map(([title, note], index) => {
+            const characterKey = index === 1 ? primaryCharacterKey : supportCharacterKey;
+            const abilityKey = index === 2 ? primaryAbilityKey : supportAbilityKey;
+            const traitKey = index === 3 ? supportTraitKey : primaryTraitKey;
+
+            return {
+                title,
+                note,
+                effects: buildFocusedEffects(characterKey, abilityKey, traitKey, {
+                    character: index === 1 ? 4 : 2,
+                    ability: index === 2 ? 4 : 2,
+                    trait: index === 3 ? 4 : 3
+                })
+            };
+        })
+    };
+}
+
+function pickNextQuestion() {
+    const currentQuestion = state.activeQuestions[state.currentQuestion];
+    const selectedIndex = state.answers[state.currentQuestion];
+    const selectedOption = currentQuestion.options[selectedIndex];
+
+    return buildAdaptiveFollowUpQuestion(currentQuestion, selectedOption);
 }
 
 function renderQuestion() {
@@ -1778,6 +2021,9 @@ function renderQuestion() {
         `;
 
         button.addEventListener("click", () => {
+            if (state.answers[state.currentQuestion] !== index) {
+                removeFuturePath();
+            }
             state.answers[state.currentQuestion] = index;
             renderQuestion();
         });
@@ -2084,9 +2330,11 @@ function renderResult() {
 }
 
 function startQuiz() {
-    state.activeQuestions = getQuestionsForMode(state.modeKey);
+    state.questionPool = getModeQuestionPool(state.modeKey);
+    state.targetQuestionCount = getQuestionCountForMode(state.modeKey);
+    state.activeQuestions = [getStartingQuestion(state.modeKey, state.questionPool)];
     state.currentQuestion = 0;
-    state.answers = Array(state.activeQuestions.length).fill(null);
+    state.answers = [null];
     state.lastResult = null;
     renderQuestion();
 }
@@ -2127,9 +2375,17 @@ nextButton.addEventListener("click", () => {
         return;
     }
 
-    if (state.currentQuestion === state.activeQuestions.length - 1) {
+    if (state.currentQuestion === state.targetQuestionCount - 1) {
         renderResult();
         return;
+    }
+
+    if (state.currentQuestion === state.activeQuestions.length - 1) {
+        const nextQuestion = pickNextQuestion();
+        if (nextQuestion) {
+            state.activeQuestions.push(nextQuestion);
+            state.answers.push(null);
+        }
     }
 
     state.currentQuestion += 1;
